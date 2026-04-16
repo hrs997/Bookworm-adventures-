@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            background: #1a1a1a; display: flex; flex-direction: column; justify-content: start; align-items: center; 
+            height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden;
+        }
+        
+        /* BATTLE ARENA */
+        #battle-screen {
+            width: 100%; height: 35vh; display: flex; justify-content: space-between; align-items: end;
+            padding: 20px; box-sizing: border-box; background: #000; border-bottom: 4px solid #4a443f;
+            position: relative;
+        }
+
+        .fighter-container { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 30%; }
+
+        /* Stickman Base Styling */
+        .stickman { width: 40px; height: 80px; position: relative; }
+        .stickman .head { width: 25px; height: 25px; border-radius: 50%; position: absolute; top: 0; left: 7.5px; border: 3px solid; }
+        .stickman .torso { width: 3px; height: 35px; position: absolute; top: 25px; left: 18px; }
+        .stickman .arm { width: 20px; height: 3px; position: absolute; top: 35px; transform-origin: 10% 50%; }
+        .stickman .arm.left { left: 0; transform: rotate(140deg); }
+        .stickman .arm.right { left: 18px; transform: rotate(40deg); }
+        .stickman .leg { width: 25px; height: 3px; position: absolute; top: 60px; transform-origin: 10% 50%; }
+        .stickman .leg.left { left: 0; transform: rotate(120deg); }
+        .stickman .leg.right { left: 18px; transform: rotate(60deg); }
+
+        /* Color assignments */
+        #player-sprite { border-color: #3498db; }
+        #player-sprite .head, #player-sprite .torso, #player-sprite .arm, #player-sprite .leg { border-color: #3498db; background: #3498db; }
+
+        #enemy-sprite { border-color: #e74c3c; transform: scaleX(-1); } /* Flip enemy */
+        #enemy-sprite .head, #enemy-sprite .torso, #enemy-sprite .arm, #enemy-sprite .leg { border-color: #e74c3c; background: #e74c3c; }
+
+        /* Pixel Heart System */
+        .heart-bar { display: flex; gap: 4px; }
+        .heart {
+            width: 16px; height: 16px; background-size: contain; background-repeat: no-repeat;
+            image-rendering: pixelated; /* Essential for pixel art */
+            /* Using encoded SVGs for pixel hearts. 'ff' = full, '75' = 3/4, '50' = 1/2, '25' = 1/4, '00' = empty */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M1 1h2v1h1v1h1V2h2V1h1v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23e74c3c"/></svg>');
+        }
+        .heart.p75 { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M1 1h2v1h1v1h1V2h2V1h1v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23e74c3c"/><path d="M6 1h1v1h1v2H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23555"/></svg>'); }
+        .heart.p50 { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M1 1h2v1h1v1h1V2h2V1h1v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23e74c3c"/><path d="M4 1h4v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23555"/></svg>'); }
+        .heart.p25 { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M1 1h2v1h1v1h1V2h2V1h1v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23e74c3c"/><path d="M2 1h6v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23555"/></svg>'); }
+        .heart.p00 { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M1 1h2v1h1v1h1V2h2V1h1v3H7v1H6v1H5v1H4v1H3v-1H2v-1H1v-1H0V1h1z" fill="%23555"/></svg>'); }
+
+        /* PUZZLE AREA (Scaling down slightly for battle area) */
+        #game-board { scale: 0.9; margin-top: -10px; }
+
+        /* Word Display Bar */
+        #word-bar {
+            width: 290px; height: 45px; background: #2c2c2c;
+            border: 3px solid #4a443f; border-radius: 8px;
+            margin-top: 10px; margin-bottom: 10px; display: flex; justify-content: center;
+            align-items: center; font-size: 22px; font-weight: bold;
+            color: #e6d5b8; letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        #tile-grid { 
+            display: flex; gap: 10px; background: #332f2b; 
+            padding: 12px; border-radius: 10px; border: 4px solid #4a443f;
+        }
+
+        .column {
+            display: flex; flex-direction: column-reverse;
+            width: 60px; height: 280px; gap: 8px;
+        }
+
+        .tile {
+            width: 60px; height: 60px; position: relative;
+            background: linear-gradient(145deg, #e6d5b8, #c5b396);
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.2), 2px 2px 5px rgba(0,0,0,0.3);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 24px; font-weight: 800; color: #1a1a1a;
+            border-radius: 6px; cursor: pointer; user-select: none;
+            transition: all 0.2s ease;
+            animation: dropIn 0.4s ease-out;
+        }
+
+        /* TIER DOTS (Bottom Right) */
+        .tile-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            position: absolute; bottom: 5px; right: 5px;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        }
+        .dot-bronze { background: #cd7f32; border: 1px solid #8c5622; }
+        .dot-silver { background: #bdc3c7; border: 1px solid #7f8c8d; }
+        .dot-gold   { background: #f1c40f; border: 1px solid #d4ac0d; }
+
+        .tile.selected { 
+            background: #f39c12; color: #000;
+            transform: scale(1.05); box-shadow: 0 0 15px #f39c12;
+            border: 2px solid #d35400;
+        }
+
+        .controls { margin-top: 10px; display: flex; gap: 15px; align-items: center; }
+
+        button { padding: 12px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; transition: all 0.3s; color: white; }
+
+        #shuffle-btn { background: #27ae60; cursor: pointer; box-shadow: 0 5px 0 #1e8449; }
+        #shuffle-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1e8449; }
+
+        #attack-btn { background: #555; color: #888; cursor: not-allowed; box-shadow: 0 5px 0 #333; }
+        #attack-btn.ready { background: #8e44ad; color: white; cursor: pointer; box-shadow: 0 5px 0 #6d3386; animation: glow 1s infinite alternate; }
+
+        @keyframes glow { from { box-shadow: 0 5px 0 #6d3386, 0 0 5px #8e44ad; } to { box-shadow: 0 5px 0 #6d3386, 0 0 20px #8e44ad; } }
+        @keyframes dropIn { 0% { transform: translateY(-400px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    
+        /* Simple Combat Animations */
+        @keyframes playerAttack { 0% { left: 20px; } 50% { left: 100px; } 100% { left: 20px; } }
+        @keyframes enemyFlinch { 0% { transform: scaleX(-1) translateX(0); } 50% { transform: scaleX(-1) translateX(-20px); } 100% { transform: scaleX(-1) translateX(0); } }
+        .player-attacking { animation: playerAttack 0.4s ease-out; position: absolute; left: 20px; bottom: 20px;}
+        .enemy-hit { animation: enemyFlinch 0.3s; }
+
+    </style>
+</head>
+<body>
+
+<div id="battle-screen">
+    <div class="fighter-container">
+        <div class="heart-bar" id="player-health"></div>
+        <div class="stickman" id="player-sprite">
+            <div class="head"></div><div class="torso"></div>
+            <div class="arm left"></div><div class="arm right"></div>
+            <div class="leg left"></div><div class="leg right"></div>
+        </div>
+    </div>
+    
+    <div class="fighter-container">
+        <div class="heart-bar" id="enemy-health"></div>
+        <div class="stickman" id="enemy-sprite">
+            <div class="head"></div><div class="torso"></div>
+            <div class="arm left"></div><div class="arm right"></div>
+            <div class="leg left"></div><div class="leg right"></div>
+        </div>
+    </div>
+</div>
+
+<div id="word-bar">SELECT LETTERS</div>
+<div id="game-board">
+    <div id="tile-grid">
+        <div class="column" id="col-0"></div>
+        <div class="column" id="col-1"></div>
+        <div class="column" id="col-2"></div>
+        <div class="column" id="col-3"></div>
+    </div>
+</div>
+
+<div class="controls">
+    <button id="shuffle-btn">SCRAMBLE</button>
+    <button id="attack-btn" disabled>ATTACK!</button>
+</div>
+
+<script>
+    const letters = "ABCDEFGHIJKLMNOPRSTVWXYZ".split("");
+    letters.push("Qu", "U");
+    
+    // TIERS
+    const tiers = {
+        bronze: "ADEGILNORSTU".split(""),
+        silver: "BCFHMPVWY".split(""),
+        gold: ["J", "K", "Qu", "X", "Z"]
+    }
+
+    // GAME STATE
+    let selectedTiles = [];
+    let enemyHP = 10.0;
+    let playerHP = 10.0;
+
+    // --- HEALTH SYSTEM ---
+    function updateHearts(containerId, currentHP) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        
+        for (let i = 1; i <= 10; i++) {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            
+            if (currentHP >= i) { heart.classList.add('p100'); } // Full
+            else if (currentHP >= i - 0.25) { heart.classList.add('p75'); } // 3/4
+            else if (currentHP >= i - 0.5) { heart.classList.add('p50'); } // 1/2
+            else if (currentHP >= i - 0.75) { heart.classList.add('p25'); } // 1/4
+            else { heart.classList.add('p00'); } // Empty
+            
+            container.appendChild(heart);
+        }
+    }
+
+    // --- DAMAGE LOGIC ---
+    function calculateDamage() {
+        // Base Damage: Length matters. 3-4 letters = low. 5-6 = mid. 7-8+ = high.
+        // We divide by 4 so longer words break "quarters" better.
+        let baseDamage = (selectedTiles.length * 0.25); 
+
+        // Tier Bonus: Each tier adds a multiplier
+        let multiplier = 1.0;
+        selectedTiles.forEach(tile => {
+            const letter = tile.textContent;
+            if (tiers.gold.includes(letter)) multiplier += 0.20; // +20% per Gold
+            else if (tiers.silver.includes(letter)) multiplier += 0.10; // +10% per Silver
+        });
+
+        // Ensure damage is always in steps of 0.25
+        const totalDamage = Math.ceil((baseDamage * multiplier) * 4) / 4;
+        return totalDamage;
+    }
+
+    // --- GRID LOGIC ---
+    function getRandomLetter() { return letters[Math.floor(Math.random() * letters.length)]; }
+
+    function getTier(letter) {
+        if (tiers.gold.includes(letter)) return 'gold';
+        if (tiers.silver.includes(letter)) return 'silver';
+        return 'bronze';
+    }
+
+    function createTile() {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        const letter = getRandomLetter();
+        tile.textContent = letter;
+        
+        // Add tier dot
+        const dot = document.createElement('div');
+        dot.className = `tile-dot dot-${getTier(letter)}`;
+        tile.appendChild(dot);
+
+        tile.onclick = () => toggleTile(tile);
+        return tile;
+    }
+
+    function toggleTile(tile) {
+        const index = selectedTiles.indexOf(tile);
+        if (index !== -1) {
+            if (index === selectedTiles.length - 1) { // Only undo last letter
+                tile.classList.remove('selected');
+                selectedTiles.pop();
+                updateWord();
+            }
+        } else {
+            tile.classList.add('selected');
+            selectedTiles.push(tile);
+            updateWord();
+        }
+    }
+
+    function updateWord() {
+        const currentWord = selectedTiles.map(t => t.textContent).join("");
+        document.getElementById('word-bar').textContent = currentWord || "SELECT LETTERS";
+        checkDictionary(currentWord);
+    }
+
+    async function checkDictionary(word) {
+        if (word.length < 3) { setAttackReady(false); return; }
+        try {
+            const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+            setAttackReady(response.ok);
+        } catch (e) { console.log("API Error"); setAttackReady(false); }
+    }
+
+    function setAttackReady(isReady) {
+        const btn = document.getElementById('attack-btn');
+        if (isReady) { btn.classList.add('ready'); btn.disabled = false; }
+        else { btn.classList.remove('ready'); btn.disabled = true; }
+    }
+
+    function initBoard() {
+        for (let i = 0; i < 4; i++) {
+            const col = document.getElementById(`col-${i}`);
+            for (let j = 0; j < 4; j++) { col.appendChild(createTile()); }
+        }
+        updateHearts('player-health', playerHP);
+        updateHearts('enemy-health', enemyHP);
+    }
+
+    function randomizeBoard() {
+        selectedTiles.forEach(t => t.classList.remove('selected'));
+        selectedTiles = [];
+        updateWord();
+        const allTiles = document.querySelectorAll('.tile');
+        allTiles.forEach((tile) => {
+            let cycles = 0;
+            const maxCycles = 10 + Math.floor(Math.random() * 8);
+            const interval = setInterval(() => {
+                tile.textContent = letters[Math.floor(Math.random() * letters.length)];
+                // Remove existing dot, add random colored dot during cycle for effect
+                if(tile.querySelector('.tile-dot')) tile.querySelector('.tile-dot').remove();
+                const tempDot = document.createElement('div');
+                tempDot.className = 'tile-dot dot-bronze'; // placeholder
+                tile.appendChild(tempDot);
+
+                cycles++;
+                if (cycles >= maxCycles) {
+                    clearInterval(interval);
+                    const finalLetter = getRandomLetter();
+                    tile.textContent = finalLetter;
+                    tempDot.className = `tile-dot dot-${getTier(finalLetter)}`; // set final tier
+                }
+            }, 60);
+        });
+    }
+
+    // --- COMBAT EXECUTION ---
+    function processAttack() {
+        const damage = calculateDamage();
+        enemyHP -= damage;
+        if (enemyHP < 0) enemyHP = 0;
+        
+        // Show damage in bar briefly
+        const wordBar = document.getElementById('word-bar');
+        const originalWord = wordBar.textContent;
+        wordBar.textContent = `HIT! -${damage.toFixed(2)}`;
+        wordBar.style.color = "#e74c3c";
+
+        updateHearts('enemy-health', enemyHP);
+
+        // Simple Combat FX
+        document.getElementById('player-sprite').classList.add('player-attacking');
+        setTimeout(() => document.getElementById('enemy-sprite').classList.add('enemy-hit'), 200);
+
+        // Grid Refill (from previous versions)
+        selectedTiles.forEach(tile => tile.remove());
+        selectedTiles = [];
+        setAttackReady(false); // reset button immediately
+
+        setTimeout(() => {
+            // Reset word bar
+            wordBar.textContent = "SELECT LETTERS";
+            wordBar.style.color = "#e6d5b8";
+            // Reset FX
+            document.getElementById('player-sprite').classList.remove('player-attacking');
+            document.getElementById('enemy-sprite').classList.remove('enemy-hit');
+
+            // Refill Grid
+            for (let i = 0; i < 4; i++) {
+                const col = document.getElementById(`col-${i}`);
+                const tilesNeeded = 4 - col.querySelectorAll('.tile').length;
+                for (let t = 0; t < tilesNeeded; t++) {
+                    setTimeout(() => { col.appendChild(createTile()); }, t * 100);
+                }
+            }
+        }, 600);
+    }
+
+    document.getElementById('attack-btn').onclick = processAttack;
+    document.getElementById('shuffle-btn').onclick = randomizeBoard;
+    initBoard();
+</script>
+
+</body>
+</html>
